@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roadway Quantity Calculator</title>
+<meta name="theme-color" content="#121214">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Quantities">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<style>
+:root{--bg:#121214;--card:#1c1c20;--field:#232328;--text:#e8e4da;--muted:#b9b4a8;--line:#5a5850;--accent:#f5c45c;--onaccent:#121214;--bad:#ff9a8f;--warn:#ffd27a}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:20px;line-height:1.4;-webkit-text-size-adjust:100%}
+main{max-width:760px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 14px calc(40px + env(safe-area-inset-bottom))}
+h1{font-size:28px;margin:6px 0 4px}
+h2{font-size:24px;margin:0 0 14px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 16px}
+section{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:16px;margin:0 0 18px}
+.row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.f{flex:1 1 160px;min-width:150px}
+label{display:block;font-weight:600;font-size:18px;margin-bottom:6px}
+label .hint{font-weight:400;color:var(--muted)}
+input,textarea{width:100%;font:inherit;font-size:22px;color:var(--text);background:var(--field);border:2px solid var(--line);border-radius:10px;padding:12px 14px;min-height:58px;outline:none}
+input:focus,textarea:focus{border-color:var(--accent)}
+input.bad{border-color:var(--bad)}
+textarea{min-height:96px;resize:vertical}
+button{font:inherit;font-size:19px;font-weight:600;min-height:56px;padding:10px 18px;border-radius:12px;border:2px solid var(--line);background:var(--field);color:var(--text);cursor:pointer;touch-action:manipulation}
+button.on,button.primary{background:var(--accent);border-color:var(--accent);color:var(--onaccent);font-weight:700}
+.tiles{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.tile{flex:1 1 140px;border:2px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile .k{color:var(--muted);font-size:16px}
+.tile .v{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums}
+.msg{font-size:18px;margin:4px 0}
+.msg.bad{color:var(--bad)}.msg.warn{color:var(--warn)}.msg.info{color:var(--muted)}
+.item{border:2px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.item .t{font-size:21px;font-weight:700}
+.item .d{color:var(--muted);font-size:17px;margin:4px 0 8px}
+.item .q{display:flex;flex-wrap:wrap;gap:4px 20px;font-size:20px;font-variant-numeric:tabular-nums}
+.item .n{color:var(--muted);font-size:17px;margin-top:6px;white-space:pre-wrap}
+.item .row{margin:10px 0 0}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:19px;font-variant-numeric:tabular-nums}
+th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+th{color:var(--muted);font-weight:600}
+tr.tot td{font-weight:700;border-top:2px solid var(--line)}
+.toggle{display:flex;align-items:center;gap:12px;font-size:18px;min-height:56px}
+.toggle input{width:30px;height:30px;min-height:0;accent-color:var(--accent)}
+#csv{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;min-height:160px}
+@media (max-width:480px){table{font-size:16px}th,td{padding:9px 4px}section{padding:14px 12px}}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>Roadway Quantity Calculator</h1>
+<p class="sub">Field measurements in, SF / SY / CF / CY out. Works offline.</p>
+
+<section id="editor">
+  <h2 id="edTitle">Measure an item</h2>
+  <label>Shape</label>
+  <div class="row" id="shapes"></div>
+  <div class="row">
+    <div class="f"><label for="label">Label / location</label><input id="label" autocomplete="off"></div>
+    <div class="f"><label for="station">Station <span class="hint">· e.g. 12+50</span></label><input id="station" autocomplete="off"></div>
+  </div>
+  <div class="row hide" id="circMode">
+    <button data-cm="radius">I measured the radius</button><button data-cm="diameter">I measured the diameter</button>
+  </div>
+  <div class="row hide" id="segMode">
+    <button data-sm="minus">Curve bows in (subtract)</button><button data-sm="plus">Curve bows out (add)</button>
+  </div>
+  <div class="row" id="fields"></div>
+  <div class="row">
+    <div class="f"><label for="t" id="tLabel">Thickness (inches)</label><input id="t" inputmode="decimal" autocomplete="off"></div>
+    <div class="f" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><button data-tu="in">Inches</button><button data-tu="ft">Feet</button></div>
+  </div>
+  <div class="row"><div class="f"><label for="notes">Ticket notes <span class="hint">· mix, ticket #, truck…</span></label><textarea id="notes"></textarea></div></div>
+  <div class="tiles">
+    <div class="tile"><div class="k">Area</div><div class="v" id="oSF">—</div><div class="k">sq ft (SF)</div></div>
+    <div class="tile"><div class="k">Area</div><div class="v" id="oSY">—</div><div class="k">sq yd (SY)</div></div>
+    <div class="tile"><div class="k">Volume</div><div class="v" id="oCF">—</div><div class="k">cu ft (CF)</div></div>
+    <div class="tile"><div class="k">Volume</div><div class="v" id="oCY">—</div><div class="k">cu yd (CY)</div></div>
+  </div>
+  <div id="msgs"></div>
+  <div class="row"><button class="primary" id="save">Add to list</button><button id="clear">Clear</button></div>
+  <div class="msg info" id="status"></div>
+</section>
+
+<section id="itemsSec" class="hide"><h2 id="itemsTitle">Items</h2><div id="items"></div></section>
+
+<section id="sumSec" class="hide"><h2>Summary totals</h2><div class="tbl"><table id="sum"></table></div><div class="msg info" id="sumNote"></div></section>
+
+<section id="expSec" class="hide">
+  <h2>Export</h2>
+  <div class="row"><button class="primary" id="dl">Download CSV</button><button id="share" class="hide">Share CSV</button><button id="copy">Copy CSV</button></div>
+  <textarea id="csv" readonly></textarea>
+</section>
+
+<section>
+  <h2>Settings</h2>
+  <div class="row"><div class="f"><label for="waste">Waste / overage % <span class="hint">· added to totals only</span></label><input id="waste" inputmode="decimal" value="0"></div></div>
+  <label class="toggle"><input type="checkbox" id="compat"> Use old spreadsheet constants (π = 3.14, K table)</label>
+  <div class="row" style="margin-top:12px"><button id="clearAll" class="hide">Clear all items</button></div>
+  <div class="msg info">Items are saved on this phone. Export the CSV to keep a copy.</div>
+</section>
+</main>
+
+<script>
+"use strict";
+const SHAPES = [
+  { v: "rect", label: "Square / Rectangle", short: "Rectangle", fields: [["a", "Length (ft)"], ["b", "Width (ft)"]] },
+  { v: "trap", label: "Trapezoid", short: "Trapezoid", fields: [["a", "Side a, top (ft)"], ["b", "Side b, bottom (ft)"], ["h", "Height (ft)"]] },
+  { v: "circ", label: "Circle", short: "Circle", fields: [["r", "Radius (ft)"]] },
+  { v: "tribh", label: "Triangle: base & height", short: "Triangle B&H", fields: [["b", "Base (ft)"], ["h", "Height (ft)"]] },
+  { v: "tri3", label: "Triangle: 3 sides", short: "Triangle 3 sides", fields: [["a", "Side A (ft)"], ["b", "Side B (ft)"], ["c", "Side C (ft)"]] },
+  { v: "seg", label: "Triangle with curve", short: "Curved triangle", fields: [["a", "Side A (ft)"], ["b", "Side B (ft)"], ["c", "Side C (ft)"], ["ch", "Chord (ft)", "Blank = Side C", true], ["rise", "Rise of curve (ft)"]] },
+];
+const KT = [[.01,.6667],[.02,.6669],[.03,.6672],[.04,.6675],[.05,.668],[.06,.6686],[.07,.6693],[.08,.6701],[.09,.671],[.1,.672],[.11,.6731],[.12,.6743],[.13,.6756],[.14,.677],[.15,.6785],[.16,.6801],[.17,.6818],[.18,.6836],[.19,.6856],[.2,.6875],[.21,.6896],[.22,.6918],[.23,.6941],[.24,.6964],[.25,.6989],[.26,.7014],[.27,.7041],[.28,.7068],[.29,.7096],[.3,.7125],[.31,.7154],[.32,.7184],[.33,.7216],[.34,.7248],[.35,.7281],[.36,.7314],[.37,.7348],[.38,.7383],[.39,.7419],[.4,.7455],[.41,.7492],[.42,.753],[.43,.7568],[.44,.7607],[.45,.7647],[.46,.7687],[.47,.7727],[.48,.7769],[.49,.7811],[.5,.7854]];
+const KEY = "roadway-qty-calc-v1";
+const $ = (id) => document.getElementById(id);
+const sd = (s) => SHAPES.find((x) => x.v === s) || SHAPES[0];
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function blank(shape, t, tUnit) { return { id: uid(), shape, label: "", station: "", notes: "", t: t || "", tUnit: tUnit || "in", f: {}, circMode: "radius", segMode: "minus" }; }
+
+let state = { items: [], waste: "0", compat: false };
+let draft = blank("rect", "", "in");
+let editingId = null;
+try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && Array.isArray(s.items)) state = Object.assign(state, s); } catch (e) {}
+try { const d = JSON.parse(localStorage.getItem(KEY + "-draft") || "null"); if (d && d.shape) draft = Object.assign(blank(d.shape), d); } catch (e) {}
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); localStorage.setItem(KEY + "-draft", JSON.stringify(draft)); } catch (e) {} }
+
+function parse(s) { if (s === undefined || s === null || String(s).trim() === "") return null; const n = Number(String(s).trim()); return isFinite(n) ? n : "bad"; }
+function heron(a, b, c) { const s = (a + b + c) / 2, v = s * (s - a) * (s - b) * (s - c); return v > 0 ? Math.sqrt(v) : null; }
+function kLookup(r) { let k = 0; for (const [a, v] of KT) if (a <= r + 1e-12) k = v; return k; }
+function segExact(c, h) { if (c <= 0 || h <= 0) return 0; const R = (c * c / 4 + h * h) / (2 * h); let th = 2 * Math.asin(Math.min(1, c / (2 * R))); if (h > R) th = 2 * Math.PI - th; return R * R / 2 * (th - Math.sin(th)); }
+
+function calc(it, compat) {
+  const errors = [], warns = [], def = sd(it.shape), v = {};
+  for (const [k, lab, , opt] of def.fields) {
+    const p = parse(it.f[k]);
+    if (p === "bad") { errors.push(lab + " is not a number."); v[k] = null; }
+    else if (p !== null && p < 0) { errors.push(lab + " can't be negative."); v[k] = null; }
+    else v[k] = p;
+  }
+  let tFt = null; const tp = parse(it.t);
+  if (tp === "bad") errors.push("Thickness is not a number.");
+  else if (tp !== null) {
+    if (tp < 0) errors.push("Thickness can't be negative.");
+    else { tFt = it.tUnit === "in" ? tp / 12 : tp;
+      if (it.tUnit === "in" && tp > 0 && tp < 1) warns.push("Thickness under 1 inch. Did you mean feet?");
+      if (it.tUnit === "ft" && tp > 3) warns.push("Thickness over 3 feet. Did you mean inches?"); }
+  }
+  const missing = def.fields.some(([k, , , opt]) => !opt && (v[k] === null || v[k] === undefined));
+  const g = (k) => v[k] || 0;
+  let sf = null, dims = "";
+  if (!errors.length && !missing) {
+    const PI = compat ? 3.14 : Math.PI;
+    if (it.shape === "rect") { sf = g("a") * g("b"); dims = g("a") + " x " + g("b"); }
+    if (it.shape === "trap") { sf = (g("a") + g("b")) / 2 * g("h"); dims = "a " + g("a") + ", b " + g("b") + ", h " + g("h"); }
+    if (it.shape === "circ") { const r = it.circMode === "diameter" ? g("r") / 2 : g("r"); sf = PI * r * r; dims = (it.circMode === "diameter" ? "dia " : "r ") + g("r"); }
+    if (it.shape === "tribh") { sf = g("b") * g("h") / 2; dims = "b " + g("b") + ", h " + g("h"); }
+    if (it.shape === "tri3" || it.shape === "seg") {
+      const tri = heron(g("a"), g("b"), g("c"));
+      if (tri === null) errors.push("These three sides can't form a triangle (two sides must add up to more than the third).");
+      else if (it.shape === "tri3") { sf = tri; dims = g("a") + ", " + g("b") + ", " + g("c"); }
+      else {
+        const chord = v.ch != null ? v.ch : g("c"), rise = g("rise"); let seg = 0;
+        if (chord > 0 && rise > 0) {
+          const ratio = rise / chord;
+          if (compat) { seg = kLookup(ratio) * chord * rise;
+            if (ratio < .01) warns.push("Rise is under 1% of the chord, so the K table ignores the curve.");
+            if (ratio > .5) warns.push("Rise is more than half the chord; the K table stops at a half circle."); }
+          else { seg = segExact(chord, rise); if (ratio > .5) warns.push("Curve is deeper than a half circle. Double-check the rise."); }
+        }
+        sf = it.segMode === "minus" ? tri - seg : tri + seg;
+        if (sf < 0) { errors.push("The curve area is bigger than the triangle. Check chord and rise."); sf = null; }
+        dims = g("a") + ", " + g("b") + ", " + g("c") + "; chord " + chord + ", rise " + rise + (it.segMode === "minus" ? " (curve in)" : " (curve out)");
+      }
+    }
+  }
+  return { sf, tFt, errors, warns, dims };
+}
+function qty(c) { if (c.sf === null) return null; const cf = c.tFt === null ? null : c.sf * c.tFt; return { sf: c.sf, sy: c.sf / 9, cf, cy: cf === null ? null : cf / 27 }; }
+function fmt(n, d) { return n === null || n === undefined || !isFinite(n) ? "—" : n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+
+// ---- editor
+function renderShapes() {
+  $("shapes").innerHTML = SHAPES.map((s) => `<button data-shape="${s.v}" class="${draft.shape === s.v ? "on" : ""}">${esc(s.label)}</button>`).join("");
+  $("circMode").classList.toggle("hide", draft.shape !== "circ");
+  $("segMode").classList.toggle("hide", draft.shape !== "seg");
+  document.querySelectorAll("[data-cm]").forEach((b) => b.classList.toggle("on", b.dataset.cm === draft.circMode));
+  document.querySelectorAll("[data-sm]").forEach((b) => b.classList.toggle("on", b.dataset.sm === draft.segMode));
+  document.querySelectorAll("[data-tu]").forEach((b) => b.classList.toggle("on", b.dataset.tu === draft.tUnit));
+  $("tLabel").textContent = "Thickness (" + (draft.tUnit === "in" ? "inches" : "feet") + ")";
+}
+function renderFields() {
+  const def = sd(draft.shape);
+  $("fields").innerHTML = def.fields.map(([k, lab, hint]) => {
+    const l = draft.shape === "circ" && draft.circMode === "diameter" ? "Diameter (ft)" : lab;
+    return `<div class="f"><label for="f_${k}">${esc(l)}${hint ? ` <span class="hint">· ${esc(hint)}</span>` : ""}</label><input id="f_${k}" data-f="${k}" inputmode="decimal" autocomplete="off" value="${esc(draft.f[k] || "")}"></div>`;
+  }).join("");
+}
+function fillForm() {
+  $("label").value = draft.label; $("station").value = draft.station; $("t").value = draft.t; $("notes").value = draft.notes;
+  $("edTitle").textContent = editingId ? "Edit item" : "Measure an item";
+  $("save").textContent = editingId ? "Save changes" : "Add to list";
+  renderShapes(); renderFields(); renderOut();
+}
+function renderOut() {
+  const c = calc(draft, state.compat), q = qty(c);
+  $("oSF").textContent = fmt(q && q.sf, 2); $("oSY").textContent = fmt(q && q.sy, 2);
+  $("oCF").textContent = fmt(q && q.cf, 2); $("oCY").textContent = fmt(q && q.cy, 2);
+  $("msgs").innerHTML = c.errors.map((e) => `<div class="msg bad">${esc(e)}</div>`).join("") + c.warns.map((e) => `<div class="msg warn">${esc(e)}</div>`).join("");
+  document.querySelectorAll("[data-f]").forEach((el) => { const p = parse(el.value); el.classList.toggle("bad", p === "bad" || (typeof p === "number" && p < 0)); });
+  $("t").classList.toggle("bad", parse($("t").value) === "bad");
+  persist();
+}
+function status(s) { $("status").textContent = s; }
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.shape) { draft.shape = b.dataset.shape; renderShapes(); renderFields(); renderOut(); return; }
+  if (b.dataset.cm) { draft.circMode = b.dataset.cm; renderShapes(); renderFields(); renderOut(); return; }
+  if (b.dataset.sm) { draft.segMode = b.dataset.sm; renderShapes(); renderOut(); return; }
+  if (b.dataset.tu) { draft.tUnit = b.dataset.tu; renderShapes(); renderOut(); return; }
+  const act = b.dataset.act, id = b.dataset.id;
+  if (act === "edit") { const it = state.items.find((x) => x.id === id); if (it) { draft = JSON.parse(JSON.stringify(it)); editingId = id; fillForm(); status("Editing " + it.label + "."); $("editor").scrollIntoView({ behavior: "smooth" }); } return; }
+  if (act === "dup") { const it = state.items.find((x) => x.id === id); if (it) { const d = JSON.parse(JSON.stringify(it)); d.id = uid(); d.label += " (copy)"; state.items.push(d); renderAll(); } return; }
+  if (act === "del") { const it = state.items.find((x) => x.id === id); if (it && confirm("Delete " + it.label + "?")) { state.items = state.items.filter((x) => x.id !== id); if (editingId === id) editingId = null; renderAll(); } return; }
+});
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  if (el.dataset && el.dataset.f) { draft.f[el.dataset.f] = el.value; renderOut(); return; }
+  if (el.id === "label" || el.id === "station" || el.id === "t" || el.id === "notes") { draft[el.id] = el.value; renderOut(); return; }
+  if (el.id === "waste") { state.waste = el.value; el.classList.toggle("bad", !(Number(el.value) >= 0)); renderAll(); return; }
+  if (el.id === "compat") { state.compat = el.checked; renderOut(); renderAll(); }
+});
+$("compat").addEventListener("change", (e) => { state.compat = e.target.checked; renderOut(); renderAll(); });
+$("save").addEventListener("click", () => {
+  const c = calc(draft, state.compat);
+  if (c.errors.length || c.sf === null) { status("Fill in every measurement first. Fix anything marked in red."); return; }
+  const label = draft.label.trim() || "Item " + (state.items.length + 1);
+  const it = Object.assign(JSON.parse(JSON.stringify(draft)), { label });
+  if (editingId) { it.id = editingId; state.items = state.items.map((x) => x.id === editingId ? it : x); editingId = null; status("Updated " + label + "."); }
+  else { it.id = uid(); state.items.push(it); status("Added " + label + "."); }
+  const nx = blank(draft.shape, draft.t, draft.tUnit); nx.circMode = draft.circMode; nx.segMode = draft.segMode; draft = nx;
+  fillForm(); renderAll();
+});
+$("clear").addEventListener("click", () => { draft = blank(draft.shape, draft.t, draft.tUnit); editingId = null; fillForm(); status(""); });
+$("clearAll").addEventListener("click", () => { if (confirm("Clear all items? This can't be undone.")) { state.items = []; editingId = null; renderAll(); status("All items cleared."); } });
+
+// ---- list, summary, csv
+let csvText = "";
+function csvCell(s) { s = String(s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function renderAll() {
+  const comp = state.items.map((it) => ({ it, c: calc(it, state.compat) }));
+  const has = comp.length > 0;
+  ["itemsSec", "sumSec", "expSec", "clearAll"].forEach((id) => $(id).classList.toggle("hide", !has));
+  $("itemsTitle").textContent = "Items (" + comp.length + ")";
+  $("items").innerHTML = comp.map(({ it, c }, i) => { const q = qty(c); return `<div class="item">
+    <div class="t">${i + 1}. ${esc(it.label)}${it.station ? " · Sta " + esc(it.station) : ""}</div>
+    <div class="d">${esc(sd(it.shape).short)} · ${esc(c.dims)}${it.t ? " · " + esc(it.t) + " " + it.tUnit + " thick" : " · no thickness"}</div>
+    <div class="q"><span>${fmt(q && q.sf, 2)} SF</span><span>${fmt(q && q.sy, 2)} SY</span><span>${fmt(q && q.cf, 2)} CF</span><span>${fmt(q && q.cy, 2)} CY</span></div>
+    ${it.notes ? `<div class="n">Notes: ${esc(it.notes)}</div>` : ""}
+    ${c.errors.length ? `<div class="msg bad">${esc(c.errors.join(" "))}</div>` : ""}
+    <div class="row"><button data-act="edit" data-id="${it.id}">Edit</button><button data-act="dup" data-id="${it.id}">Duplicate</button><button data-act="del" data-id="${it.id}">Delete</button></div></div>`; }).join("");
+  const by = {}, all = { n: 0, sf: 0, sy: 0, cf: 0, cy: 0 }; let noT = 0;
+  for (const { it, c } of comp) { const q = qty(c); if (!q) continue; const k = sd(it.shape).short; by[k] = by[k] || { n: 0, sf: 0, sy: 0, cf: 0, cy: 0 }; if (q.cf === null) noT++;
+    for (const t of [by[k], all]) { t.n++; t.sf += q.sf; t.sy += q.sy; t.cf += q.cf || 0; t.cy += q.cy || 0; } }
+  const w = Math.max(0, Number(state.waste) || 0), m = 1 + w / 100;
+  const tr = (cls, a, b, t) => `<tr class="${cls}"><td>${esc(a)}</td><td>${b}</td><td>${fmt(t.sf, 1)}</td><td>${fmt(t.sy, 2)}</td><td>${fmt(t.cf, 1)}</td><td>${fmt(t.cy, 2)}</td></tr>`;
+  let h = "<tr><th>Shape</th><th>Items</th><th>SF</th><th>SY</th><th>CF</th><th>CY</th></tr>";
+  for (const k in by) h += tr("", k, by[k].n, by[k]);
+  h += tr("tot", "Total", all.n, all);
+  if (w > 0) h += tr("tot", "Total + " + w + "% waste", "", { sf: all.sf * m, sy: all.sy * m, cf: all.cf * m, cy: all.cy * m });
+  $("sum").innerHTML = h;
+  $("sumNote").textContent = noT ? noT + " item(s) have no thickness, so they count toward area but not volume." : "";
+  const lines = ["#,Label,Station,Shape,Dimensions (ft),Thickness,SF,SY,CF,CY,Notes"];
+  comp.forEach(({ it, c }, i) => { const q = qty(c); lines.push([i + 1, it.label, it.station, sd(it.shape).short, c.dims, it.t ? it.t + " " + it.tUnit : "",
+    q ? q.sf.toFixed(2) : "", q ? q.sy.toFixed(2) : "", q && q.cf !== null ? q.cf.toFixed(2) : "", q && q.cy !== null ? q.cy.toFixed(2) : "", it.notes].map(csvCell).join(",")); });
+  lines.push(["", "TOTAL", "", "", "", "", all.sf.toFixed(2), all.sy.toFixed(2), all.cf.toFixed(2), all.cy.toFixed(2), ""].join(","));
+  if (w > 0) lines.push(["", "TOTAL + " + w + "% waste", "", "", "", "", (all.sf * m).toFixed(2), (all.sy * m).toFixed(2), (all.cf * m).toFixed(2), (all.cy * m).toFixed(2), ""].map(csvCell).join(","));
+  csvText = lines.join("\n"); $("csv").value = csvText;
+  persist();
+}
+function fname() { return "roadway-quantities-" + (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })() + ".csv"; }
+$("dl").addEventListener("click", () => {
+  try { const url = URL.createObjectURL(new Blob([csvText], { type: "text/csv" })); const a = document.createElement("a"); a.href = url; a.download = fname(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000); }
+  catch (e) { alert("Download didn't work here. Use Share or Copy instead."); }
+});
+const canShareFile = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File(["x"], "x.csv", { type: "text/csv" })] })); } catch (e) { return false; } };
+if (navigator.share) $("share").classList.remove("hide");
+$("share").addEventListener("click", async () => {
+  try { if (canShareFile()) await navigator.share({ files: [new File([csvText], fname(), { type: "text/csv" })], title: "Roadway quantities" });
+        else await navigator.share({ title: "Roadway quantities", text: csvText }); }
+  catch (e) { if (e && e.name !== "AbortError") alert("Sharing didn't work. Use Copy instead."); }
+});
+$("copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(csvText); $("copy").textContent = "Copied ✓"; }
+  catch (e) { const t = $("csv"); t.focus(); t.select(); try { document.execCommand("copy"); $("copy").textContent = "Copied ✓"; } catch (e2) { $("copy").textContent = "Select & copy below"; } }
+  setTimeout(() => { $("copy").textContent = "Copy CSV"; }, 2500);
+});
+
+$("waste").value = state.waste; $("compat").checked = !!state.compat;
+fillForm(); renderAll();
+if ("serviceWorker" in navigator && location.protocol !== "file:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+</script>
+</body>
+</html>
